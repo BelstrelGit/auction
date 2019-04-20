@@ -1,0 +1,9 @@
+#### scala ####
+*.class
+*.log
+
+
+#### IntelliJ ####
+
+.idea
+target
