@@ -2,13 +2,12 @@ package srv
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.stream.ActorMaterializer
 import cats.effect.{ExitCode, IO, IOApp}
 import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
-import srv.http.{lotHttp, LotSessionHttp}
+import srv.http.LotSessionHttp
 
 object Auction extends IOApp {
 
@@ -32,8 +31,7 @@ object Auction extends IOApp {
       implicit0(l: Logger[IO]) <- Slf4jLogger.create[IO]
       lotSessionStore <- LotSessionStore.fromResource("/sessions.json")
       lotSessionRoute = LotSessionHttp.route("session", lotSessionStore)
-      lotRoute = lotHttp.route("lot")
-      _ <- runServer(lotRoute ~ lotSessionRoute)
+      _ <- runServer(lotSessionRoute)
       _ <- IO.never
     } yield ExitCode.Success
 }
