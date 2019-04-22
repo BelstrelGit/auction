@@ -1,0 +1,34 @@
+[
+  {
+    "id": "ae340e68-64cf-11e9-82c3-7f918bcccdff",
+    "lotId": "3f2bfe16-5d8e-4277-ba5e-791161d76e2c",
+    "currPrice": 228,
+    "bets": [
+      {
+        "id": "660bb6ee-0085-4fd1-a983-ff21160dd1a8",
+        "userId": "d0e008ae-638a-11e9-9d74-d3e3da6dbd17",
+        "amount": 200
+      },
+      {
+        "id": "67a11faf-8b8d-4d5b-99f8-c8e37c42ee77",
+        "userId": "d974c9be-638a-11e9-99d8-7be44b40ea1a",
+        "amount": 208
+      },
+      {
+        "id": "09baa378-396e-4e7f-988b-e0aad50d29f7",
+        "userId": "d0e008ae-638a-11e9-9d74-d3e3da6dbd17",
+        "amount": 228
+      }
+    ],
+    "startTime": "2019-02-17 22:00:00",
+    "status": "Closed"
+  },
+  {
+    "id": "b13f49ee-64e6-11e9-b36a-6b8de28eadd5",
+    "lotId": "be6ab0ea-64e6-11e9-8588-4fb3ad214407",
+    "currPrice": 1000,
+    "bets": [],
+    "startTime": "2019-05-05 10:00:00",
+    "status": "Created"
+  }
+]
