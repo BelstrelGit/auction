@@ -27,7 +27,7 @@ final case class IOScheduler(state: Ref[IO, State]) extends SessionScheduler {
     sessionId: UUID,
     delay: FiniteDuration
   )(implicit s: Scheduler, ec: ExecutionContext): IO[UUID] = {
-    val cancellable = s.scheduleOnce(delay)(sessionStore.start(sessionId))
+    val cancellable = s.scheduleOnce(delay)(sessionStore.start(sessionId).unsafeRunSync())
     state.modify(_.add(sessionId, IO(cancellable)))
   }
 
@@ -49,12 +49,12 @@ object IOScheduler {
 
     def getAndRemove(sessionId: UUID): (State, IO[Cancellable]) = {
 
-      val io = started.get(sessionId) match {
+      val ioCancel = started.get(sessionId) match {
         case Some(cancellable) => cancellable
         case None => IO.raiseError(LotSessionNotFound(sessionId))
       }
 
-      State(started = started - sessionId) -> io
+      State(started = started - sessionId) -> ioCancel
     }
   }
 

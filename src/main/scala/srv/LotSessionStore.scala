@@ -5,6 +5,7 @@ import java.util.UUID
 import akka.actor.Scheduler
 import cats.effect.IO
 import cats.effect.concurrent.Ref
+import cats.implicits._
 import io.chrisdavenport.log4cats.Logger
 import org.joda.time.{DateTime, Period}
 import srv.IOLotSessionStore.State
@@ -24,6 +25,8 @@ trait LotSessionStore {
 
   def scheduleStart(id: UUID): IO[UUID]
 
+  def scheduleStartAll: IO[List[UUID]]
+
   def start(id: UUID): IO[LotSession]
 
   def stop(id: UUID): IO[LotSession]
@@ -41,11 +44,9 @@ object LotSessionStore extends BaseStore[LotSession] {
       lotSessions <- decodeListObjFromJsonResource(name)
       (createdL, closedL) = lotSessions.partition(_.status == Created)
       created <- makeMapByUUID(createdL)
-      createdR <- Ref[IO].of(created)
-      activeR <- Ref[IO].of(Map[UUID, LotSession]())
+      active <- IO(Map[UUID, LotSession]())
       closed <- makeMapByUUID(closedL)
-      closedR <- Ref[IO].of(closed)
-      refState <- Ref[IO].of(State(createdR, activeR, closedR))
+      refState <- Ref[IO].of(State(created, active, closed))
     } yield new IOLotSessionStore(refState)
   }
 }
@@ -66,56 +67,75 @@ final case class IOLotSessionStore(
       closedL <- closed
     } yield createdL ::: activeL ::: closedL
 
-  def created: IO[List[LotSession]] = getCreated.map(_.values.toList)
+  def created: IO[List[LotSession]] = state.get.map(_.created.values.toList)
 
-  def active: IO[List[LotSession]] = getActive.map(_.values.toList)
+  def active: IO[List[LotSession]] = state.get.map(_.active.values.toList)
 
-  def closed: IO[List[LotSession]] = getClosed.map(_.values.toList)
+  def closed: IO[List[LotSession]] = state.get.map(_.closed.values.toList)
 
   def scheduleStart(id: UUID): IO[UUID] = {
     import com.github.nscala_time.time.RichDuration
 
     for {
-      session <- getCreated.flatMap(byId(_, id))
+      c <- state.get.map(_.created)
+      session <- byId(c, id)
       delay = new RichDuration(new Period(DateTime.now(), session.startTime).toStandardDuration).toScalaDuration
+      _ <- logger.info(s"delay: $delay")
       res <- scheduler.start(this, id, delay)
       _ <- logger.info(s"LotSession with id $id schedule start at ${session.startTime}")
     } yield res
   }
 
+  def scheduleStartAll: IO[List[UUID]] = created >>= (ss => ss.map(s => scheduleStart(s.id)).sequence)
+
   def start(id: UUID): IO[LotSession] =
     for {
-      session <- getCreated.flatMap(byId(_, id))
-      res <- IO.pure(session.copy(status = Active))
+      ioSession <- state.modify(_.toActive(id))
+      res <- ioSession
       _ <- logger.info(s"LotSession with id $id started")
     } yield res
 
   def stop(id: UUID): IO[LotSession] =
     for {
-      session <- getClosed.flatMap(byId(_, id))
-      res <- IO.pure(session.copy(status = Closed))
+      ioSession <- state.modify(_.toClose(id))
+      res <- ioSession
       _ <- logger.info(s"LotSession with $id stopped")
     } yield res
-
-  private def getCreated: IO[Map[UUID, LotSession]] = state.get.flatMap(_.created.get)
-
-  private def getActive: IO[Map[UUID, LotSession]] = state.get.flatMap(_.active.get)
-
-  private def getClosed: IO[Map[UUID, LotSession]] = state.get.flatMap(_.closed.get)
 }
 
 object IOLotSessionStore {
 
   case class State(
-    created: Ref[IO, Map[UUID, LotSession]],
-    active: Ref[IO, Map[UUID, LotSession]],
-    closed: Ref[IO, Map[UUID, LotSession]]
+    created: Map[UUID, LotSession],
+    active: Map[UUID, LotSession],
+    closed: Map[UUID, LotSession]
   ) {
-    def toActive(id: UUID): IO[Unit] =
-      for {
-        c <- created.get
-        a <- active.get
-      } yield ???
+
+    def transferWithChange[K, A, B](
+      id: K,
+      m1: Map[K, A],
+      m2: Map[K, B])(
+      f: A => B
+    ): (Map[K, A], Map[K, B], B) = {
+      val newB = f(m1(id))
+      val newM1 = m1 - id
+      val newM2 = m2 + (id -> newB)
+      (newM1, newM2, newB)
+    }
+
+    def toActive(id: UUID): (State, IO[LotSession]) = created.get(id) match {
+      case Some(_) =>
+        val (nC, nA, nS) = transferWithChange(id, created, active)((s: LotSession) => s.copy(status = Active))
+        copy(created = nC, active = nA) -> IO.pure(nS)
+      case None => this -> IO.raiseError(LotSessionNotFound(id))
+    }
+
+    def toClose(id: UUID): (State, IO[LotSession]) = active.get(id) match {
+      case Some(_) =>
+        val (nA, nC, nS) = transferWithChange(id, active, closed)((s: LotSession) => s.copy(status = Closed))
+        copy(active = nA, closed = nC) -> IO.pure(nS)
+      case None => this -> IO.raiseError(LotSessionNotFound(id))
+    }
   }
 
 }

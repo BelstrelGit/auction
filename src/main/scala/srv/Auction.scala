@@ -1,6 +1,6 @@
 package srv
 
-import akka.actor.ActorSystem
+import akka.actor.{ActorSystem, Scheduler}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.Route
 import akka.stream.ActorMaterializer
@@ -8,6 +8,8 @@ import cats.effect.{ExitCode, IO, IOApp}
 import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 import srv.http.LotSessionHttp
+
+import scala.concurrent.ExecutionContext
 
 object Auction extends IOApp {
 
@@ -29,7 +31,11 @@ object Auction extends IOApp {
       implicit0(s: ActorSystem) <- system
       implicit0(c: HttpConfig) <- httpConfiguration
       implicit0(l: Logger[IO]) <- Slf4jLogger.create[IO]
+      implicit0(ctx: ExecutionContext) <- IO(s.dispatcher)
+      implicit0(scheduler: Scheduler) <- IO(s.scheduler)
+      implicit0(sessionScheduler: SessionScheduler) <- IOScheduler.create
       lotSessionStore <- LotSessionStore.fromResource("/sessions.json")
+      _ <- lotSessionStore.scheduleStartAll
       lotSessionRoute = LotSessionHttp.route("session", lotSessionStore)
       _ <- runServer(lotSessionRoute)
       _ <- IO.never
