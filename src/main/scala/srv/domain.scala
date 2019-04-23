@@ -22,9 +22,6 @@ final case class LotSession(
   startTime: DateTime,
   status: LotSessionStatus
 ) {
-  def start: LotSession = copy(status = Active)
-
-  def stop: LotSession = copy(status = Closed)
 
   def makeBet(bet: Bet): Either[String, LotSession] = status match {
     case Active =>
