@@ -2,7 +2,7 @@ package srv
 
 import java.util.UUID
 
-import cats.effect.{IO, Sync}
+import cats.effect.IO
 import com.github.nscala_time.time.Imports._
 import io.circe.derivation.annotations.JsonCodec
 import io.circe.{Decoder, Encoder}
@@ -24,7 +24,7 @@ object User {
     def multipleKey(id: UUID): Throwable = MultipleUser(id)
   }
 
-  implicit val extractor: Extractor[IO, User] = (ds: DataSource[IO]) => ds.users
+  val extractor: Extractor[IO, User] = (ds: DataSource[IO]) => ds.users
 }
 
 @JsonCodec
@@ -63,10 +63,13 @@ object LotSession {
 sealed trait LotSessionStatus
 
 object LotSessionStatus {
+
   import io.circe.generic.extras.semiauto._
 
   case object Created extends LotSessionStatus
+
   case object Active extends LotSessionStatus
+
   case object Closed extends LotSessionStatus
 
   implicit val decoder: Decoder[LotSessionStatus] = deriveEnumerationDecoder[LotSessionStatus]
@@ -81,6 +84,18 @@ final case class Lot(
   description: String
 )
 
+object Lot {
+  implicit val key: Key[Lot] = new Key[Lot] {
+    def key(el: Lot): UUID = el.id
+
+    def notFound(id: UUID): Throwable = LotNotFound(id)
+
+    def multipleKey(id: UUID): Throwable = MultipleLot(id)
+  }
+
+  val extractor: Extractor[IO, Lot] = (ds: DataSource[IO]) => ds.lots
+}
+
 @JsonCodec
 final case class Bet(
   id: UUID,
@@ -88,11 +103,32 @@ final case class Bet(
   amount: BigDecimal
 )
 
+object Bet {
+  implicit val key: Key[Bet] = new Key[Bet] {
+    def key(el: Bet): UUID = el.id
+
+    def notFound(id: UUID): Throwable = BetNotFound(id)
+
+    def multipleKey(id: UUID): Throwable = MultipleBet(id)
+  }
+
+  val extractor: Extractor[IO, Bet] = (ds: DataSource[IO]) => ds.bets
+}
+
 abstract class StacklessException(message: String) extends Exception(message, null, false, false)
 
 final case class UserNotFound(id: UUID) extends StacklessException(s"User with id $id not found")
-final case class MultipleUser(id:UUID) extends StacklessException(s"Multiple User with id $id")
+
+final case class MultipleUser(id: UUID) extends StacklessException(s"Multiple User with id $id")
 
 final case class LotSessionNotFound(id: UUID) extends StacklessException(s"LotSession with id $id not found")
+
 final case class MultipleLotSession(id: UUID) extends StacklessException(s"Multiple LotSession with id $id")
 
+final case class LotNotFound(id: UUID) extends StacklessException(s"Lot with id $id not found")
+
+final case class MultipleLot(id: UUID) extends StacklessException(s"Multiple Lot with id $id")
+
+final case class BetNotFound(id: UUID) extends StacklessException(s"Bet with id $id not found")
+
+final case class MultipleBet(id: UUID) extends StacklessException(s"Multiple Bet with id $id")

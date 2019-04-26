@@ -1,10 +1,14 @@
 package srv.http
 
+import java.util.UUID
+
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
-import cats.effect.{IO, Sync}
-import io.circe.Encoder
-import srv.{LotSessionStore, SimpleStateStore, User}
+import cats.effect.IO
+import cats.implicits._
+import io.circe.{Decoder, Encoder}
+import srv.{LotSessionStore, SimpleStateStore}
+
 
 object routes {
 
@@ -27,11 +31,31 @@ object routes {
   }
 
   object SimpleStoreHttp {
-    def route(prefix: String, store: SimpleStateStore[IO, User]): Route =
+    def route[T: Encoder : Decoder](prefix: String, store: SimpleStateStore[IO, T]): Route =
       pathPrefix(prefix) {
-        (get & path("all")) {
-          complete(store.all)
-        }
+        get {
+          path("all") {
+            complete(store.all)
+          } ~
+            parameter("id".as[UUID]) { id =>
+              complete(store.byId(id))
+            }
+        } ~
+          post {
+            entity(as[IO[T]]) { ioT =>
+              complete(ioT.flatMap(store.add).as("Add success"))
+            }
+          } ~
+          put {
+            entity(as[IO[T]]) { ioT =>
+              complete(ioT.flatMap(store.update).as("Update success"))
+            }
+          } ~
+          delete {
+            entity(as[IO[T]]) { ioT =>
+              complete(ioT.flatMap(store.remove).as("Remove success"))
+            }
+          }
       }
   }
 

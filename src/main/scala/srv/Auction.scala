@@ -36,13 +36,21 @@ object Auction extends IOApp {
       implicit0(scheduler: Scheduler) <- IO(s.scheduler)
       implicit0(sessionScheduler: SessionScheduler) <- IOScheduler.create
       implicit0(ds: DataSource[IO]) <- DataSource.file[IO]
+
+      lotStore <- SimpleStateStore.create(Lot.extractor)
+      betStore <- SimpleStateStore.create(Bet.extractor)
       userStore <- SimpleStateStore.create(User.extractor)
       lotSessionStore <- LotSessionStore.fromResource("/sessions.json")
+
       _ <- lotSessionStore.scheduleStartAll
+
       lotSessionRoute = LotSessionHttp.route("session", lotSessionStore)
+      lotRoute = SimpleStoreHttp.route("lot", lotStore)
+      betRoute = SimpleStoreHttp.route("bet", betStore)
       userRoute = SimpleStoreHttp.route("user", userStore)
 
-      _ <- runServer(lotSessionRoute ~ userRoute)
+      _ <- runServer(lotSessionRoute ~ lotRoute ~ betRoute ~ userRoute)
+
       _ <- IO.never
     } yield ExitCode.Success
 }
