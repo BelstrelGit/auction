@@ -2,6 +2,7 @@ package srv
 
 import java.util.UUID
 
+import cats.effect.{IO, Sync}
 import com.github.nscala_time.time.Imports._
 import io.circe.derivation.annotations.JsonCodec
 import io.circe.{Decoder, Encoder}
@@ -12,6 +13,19 @@ final case class User(
   id: UUID,
   name: String
 )
+
+object User {
+
+  implicit val key: Key[User] = new Key[User] {
+    def key(el: User): UUID = el.id
+
+    def notFound(id: UUID): Throwable = UserNotFound(id)
+
+    def multipleKey(id: UUID): Throwable = MultipleUser(id)
+  }
+
+  implicit val extractor: Extractor[IO, User] = (ds: DataSource[IO]) => ds.users
+}
 
 @JsonCodec
 final case class LotSession(
@@ -49,13 +63,10 @@ object LotSession {
 sealed trait LotSessionStatus
 
 object LotSessionStatus {
-
   import io.circe.generic.extras.semiauto._
 
   case object Created extends LotSessionStatus
-
   case object Active extends LotSessionStatus
-
   case object Closed extends LotSessionStatus
 
   implicit val decoder: Decoder[LotSessionStatus] = deriveEnumerationDecoder[LotSessionStatus]
@@ -79,6 +90,9 @@ final case class Bet(
 
 abstract class StacklessException(message: String) extends Exception(message, null, false, false)
 
-final case class LotSessionNotFound(id: UUID) extends StacklessException(s"LotSession with id $id not found")
+final case class UserNotFound(id: UUID) extends StacklessException(s"User with id $id not found")
+final case class MultipleUser(id:UUID) extends StacklessException(s"Multiple User with id $id")
 
+final case class LotSessionNotFound(id: UUID) extends StacklessException(s"LotSession with id $id not found")
 final case class MultipleLotSession(id: UUID) extends StacklessException(s"Multiple LotSession with id $id")
+

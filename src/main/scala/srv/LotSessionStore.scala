@@ -86,21 +86,15 @@ final case class IOLotSessionStore(
     } yield res
   }
 
-  def scheduleStartAll: IO[List[UUID]] = created >>= (ss => ss.map(s => scheduleStart(s.id)).sequence)
+  def scheduleStartAll: IO[List[UUID]] =
+    created >>= (ss => ss.map(s => scheduleStart(s.id)).sequence)
 
   def start(id: UUID): IO[LotSession] =
-    for {
-      ioSession <- state.modify(_.toActive(id))
-      res <- ioSession
-      _ <- logger.info(s"LotSession with id $id started")
-    } yield res
+    state.modify(_.toActive(id)).flatten <* logger.info(s"LotSession with id $id started")
 
   def stop(id: UUID): IO[LotSession] =
-    for {
-      ioSession <- state.modify(_.toClose(id))
-      res <- ioSession
-      _ <- logger.info(s"LotSession with $id stopped")
-    } yield res
+    state.modify(_.toClose(id)).flatten <* logger.info(s"LotSession with $id stopped")
+
 }
 
 object IOLotSessionStore {
