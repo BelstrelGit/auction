@@ -10,14 +10,17 @@ import srv.LotSessionStatus.{Active, Closed, Created}
 
 @JsonCodec
 final case class User(
-  id: UUID,
-  name: String
+  username: String,
+  password: String,
+  name: String,
+  age: Int,
+  token: Option[UUID] = None
 )
 
 object User {
 
   implicit val key: Key[User, String] = new Key[User, String] {
-    def key(el: User): String = el.name
+    def key(el: User): String = el.username
 
     def notFound(id: String): Throwable = UserNotFound(id)
 
@@ -117,18 +120,15 @@ object Bet {
 
 abstract class StacklessException(message: String) extends Exception(message, null, false, false)
 
-final case class UserNotFound(id: String) extends StacklessException(s"User with id $id not found")
-
-final case class MultipleUser(id: String) extends StacklessException(s"Multiple User with id $id")
+final case class UserNotFound(id: String) extends StacklessException(s"User with username $id not found")
+final case class MultipleUser(id: String) extends StacklessException(s"Multiple User with username $id")
+final case class UserNotAuthorized(id: String) extends StacklessException(s"User with username $id is not authorized")
 
 final case class LotSessionNotFound(id: UUID) extends StacklessException(s"LotSession with id $id not found")
-
 final case class MultipleLotSession(id: UUID) extends StacklessException(s"Multiple LotSession with id $id")
 
 final case class LotNotFound(id: UUID) extends StacklessException(s"Lot with id $id not found")
-
 final case class MultipleLot(id: UUID) extends StacklessException(s"Multiple Lot with id $id")
 
 final case class BetNotFound(id: UUID) extends StacklessException(s"Bet with id $id not found")
-
 final case class MultipleBet(id: UUID) extends StacklessException(s"Multiple Bet with id $id")

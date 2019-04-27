@@ -39,15 +39,15 @@ object Auction extends IOApp {
 
       lotStore <- SimpleStateStore.create(Lot.extractor)
       betStore <- SimpleStateStore.create(Bet.extractor)
-      userStore <- SimpleStateStore.create(User.extractor)
+      userStore <- UserStore.create[IO]
       lotSessionStore <- LotSessionStore.fromResource("/data/sessions.json")
 
       _ <- lotSessionStore.scheduleStartAll
 
-      lotSessionRoute = LotSessionHttp.route("session", lotSessionStore)
       lotRoute = SimpleStoreHttp.route("lot", lotStore)
       betRoute = SimpleStoreHttp.route("bet", betStore)
-      userRoute = SimpleStoreHttp.route("user", userStore)
+      userRoute = UserStoreHttp.route(userStore)
+      lotSessionRoute = LotSessionHttp.route("session", lotSessionStore)
 
       _ <- runServer(lotSessionRoute ~ lotRoute ~ betRoute ~ userRoute)
 

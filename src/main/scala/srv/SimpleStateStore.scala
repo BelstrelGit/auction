@@ -22,15 +22,16 @@ object SimpleStateStore {
 
   def create[F[_] : Sync, T, K](
     extractor: Extractor[F, T]
-  )(implicit ds: DataSource[F], key: Key[T, K]): F[SimpleStateStore[F, T, K]] =
+  )(implicit ds: DataSource[F], key: Key[T, K]): F[SimpleStateStore[F, T, K]] = {
     for {
       elems <- extractor.get
       state <- Sync[F].fromEither(SimpleState.create(elems))
       ref <- Ref[F].of(state)
-    } yield ImplSimpleStateStore(ref)
+    } yield new ImplSimpleStateStore(ref)
+  }
 
-  private case class ImplSimpleStateStore[F[_] : Sync, T, K](
-    state: Ref[F, SimpleState[T, K]]
+  private[srv] class ImplSimpleStateStore[F[_] : Sync, T, K](
+    val state: Ref[F, SimpleState[T, K]]
   )(implicit key: Key[T, K]
   ) extends SimpleStateStore[F, T, K] {
 
