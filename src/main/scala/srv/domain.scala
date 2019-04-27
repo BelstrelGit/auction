@@ -26,8 +26,6 @@ object User {
 
     def multipleKey(id: String): Throwable = MultipleUser(id)
   }
-
-  val extractor: Extractor[IO, User] = (ds: DataSource[IO]) => ds.users
 }
 
 @JsonCodec
