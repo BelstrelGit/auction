@@ -1,12 +1,10 @@
 package srv
 
-import java.util.UUID
-
 import cats.effect.Sync
 import cats.effect.concurrent.Ref
 import cats.implicits._
 
-trait SimpleStateStore[F[_], T] {
+trait SimpleStateStore[F[_], T, K] {
   def add(elem: T): F[Unit]
 
   def update(elem: T): F[Unit]
@@ -15,25 +13,26 @@ trait SimpleStateStore[F[_], T] {
 
   def all: F[List[T]]
 
-  def getById(id: UUID): F[Option[T]]
+  def getById(id: K): F[Option[T]]
 
-  def byId(id: UUID): F[T]
+  def byId(id: K): F[T]
 }
 
 object SimpleStateStore {
 
-  def create[F[_] : Sync, T: Key](
+  def create[F[_] : Sync, T, K](
     extractor: Extractor[F, T]
-  )(implicit ds: DataSource[F]): F[SimpleStateStore[F, T]] =
+  )(implicit ds: DataSource[F], key: Key[T, K]): F[SimpleStateStore[F, T, K]] =
     for {
       elems <- extractor.get
       state <- Sync[F].fromEither(SimpleState.create(elems))
       ref <- Ref[F].of(state)
     } yield ImplSimpleStateStore(ref)
 
-  private case class ImplSimpleStateStore[F[_] : Sync, T: Key](
-    state: Ref[F, SimpleState[T]]
-  ) extends SimpleStateStore[F, T] {
+  private case class ImplSimpleStateStore[F[_] : Sync, T, K](
+    state: Ref[F, SimpleState[T, K]]
+  )(implicit key: Key[T, K]
+  ) extends SimpleStateStore[F, T, K] {
 
     def all: F[List[T]] = state.get >>= (ss => Sync[F].delay(ss.all))
 
@@ -43,11 +42,11 @@ object SimpleStateStore {
 
     def update(elem: T): F[Unit] = state.update(_.update(elem))
 
-    def getById(id: UUID): F[Option[T]] = state.get >>= (s => Sync[F].delay(s.getById(id)))
+    def getById(id: K): F[Option[T]] = state.get >>= (s => Sync[F].delay(s.getById(id)))
 
-    def byId(id: UUID): F[T] = Sync[F].flatMap(getById(id))(_.liftTo[F](Key.notFound[T](id)))
+    def byId(id: K): F[T] = Sync[F].flatMap(getById(id))(_.liftTo[F](Key.notFound[T, K](id)))
 
-    private def stateUpdate(f: SimpleState[T] => Either[Throwable, SimpleState[T]]): F[Unit] =
+    private def stateUpdate(f: SimpleState[T, K] => Either[Throwable, SimpleState[T, K]]): F[Unit] =
       state.modify { s =>
         f(s) match {
           case Right(value) => value -> Sync[F].unit

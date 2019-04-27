@@ -30,5 +30,13 @@
     "bets": [],
     "startTime": "2019-04-24 02:06:00",
     "status": "Created"
+  },
+  {
+    "id": "dfa84646-68ce-11e9-bc66-e370050b8a66",
+    "lotId": "ac3fe284-68cc-11e9-832d-4f60047b7e0c",
+    "currPrice": 2.17,
+    "bets": [],
+    "startTime": "2019-05-24 02:06:00",
+    "status": "Created"
   }
 ]

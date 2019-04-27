@@ -32,7 +32,7 @@ trait LotSessionStore {
   def stop(id: UUID): IO[LotSession]
 }
 
-object LotSessionStore extends BaseStore[LotSession] {
+object LotSessionStore extends BaseStore[LotSession, UUID] {
   def fromResource(
     name: String
   )(implicit
@@ -58,7 +58,7 @@ final case class IOLotSessionStore(
   actorScheduler: Scheduler,
   context: ExecutionContext,
   logger: Logger[IO]
-) extends BaseStore[LotSession] with LotSessionStore {
+) extends BaseStore[LotSession, UUID] with LotSessionStore {
 
   def all: IO[List[LotSession]] =
     for {

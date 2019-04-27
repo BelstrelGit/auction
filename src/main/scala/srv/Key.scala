@@ -1,19 +1,17 @@
 package srv
 
-import java.util.UUID
+trait Key[T, K] {
+  def key(el: T): K
 
-trait Key[T] {
-  def key(el: T): UUID
+  def notFound(id: K): Throwable
 
-  def notFound(id: UUID): Throwable
-
-  def multipleKey(id: UUID): Throwable
+  def multipleKey(id: K): Throwable
 }
 
 object Key {
-  def key[T](el: T)(implicit k: Key[T]): UUID = k.key(el)
+  def key[T, K](el: T)(implicit k: Key[T, K]): K = k.key(el)
 
-  def notFound[T](id: UUID)(implicit k: Key[T]): Throwable = k.notFound(id)
+  def notFound[T, K](id: K)(implicit k: Key[T, K]): Throwable = k.notFound(id)
 
-  def multipleKey[T](id: UUID)(implicit k: Key[T]): Throwable = k.multipleKey(id)
+  def multipleKey[T, K](id: K)(implicit k: Key[T, K]): Throwable = k.multipleKey(id)
 }

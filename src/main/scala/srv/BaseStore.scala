@@ -8,25 +8,25 @@ import cats.implicits._
 import io.circe.Decoder
 import io.circe.parser._
 
-abstract class BaseStore[A: Decoder : Key] {
+abstract class BaseStore[T: Decoder, K](implicit key: Key[T,K]) {
 
-  def decodeListObjFromJsonResource(name: String): IO[List[A]] = IO {
-    decode[List[A]](
+  def decodeListObjFromJsonResource(name: String): IO[List[T]] = IO {
+    decode[List[T]](
       Files.readAllBytes(
         Paths.get(getClass.getResource(name).toURI))
-        .map(_.toChar).mkString): Either[Throwable, List[A]]
+        .map(_.toChar).mkString): Either[Throwable, List[T]]
   }.rethrow
 
-  def makeMapByUUID(list: List[A]): IO[Map[UUID, A]] =
+  def makeMapByUUID(list: List[T]): IO[Map[K, T]] =
     list
-      .groupBy(Key.key[A])
+      .groupBy(Key.key[T, K])
       .toList
       .traverse {
         case (id, List(el)) => IO.pure(id -> el)
         case (id, _) => IO.raiseError(Key.multipleKey(id))
       }.map(_.toMap)
 
-  def getById(map: Map[UUID, A], id: UUID): IO[Option[A]] = IO.pure(map.get(id))
+  def getById(map: Map[K, T], id: K): IO[Option[T]] = IO.pure(map.get(id))
 
-  def byId(map: Map[UUID, A], id: UUID): IO[A] = getById(map, id).flatMap(_.liftTo[IO](Key.notFound(id)))
+  def byId(map: Map[K, T], id: K): IO[T] = getById(map, id).flatMap(_.liftTo[IO](Key.notFound(id)))
 }

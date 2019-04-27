@@ -40,7 +40,7 @@ object Auction extends IOApp {
       lotStore <- SimpleStateStore.create(Lot.extractor)
       betStore <- SimpleStateStore.create(Bet.extractor)
       userStore <- SimpleStateStore.create(User.extractor)
-      lotSessionStore <- LotSessionStore.fromResource("/sessions.json")
+      lotSessionStore <- LotSessionStore.fromResource("/data/sessions.json")
 
       _ <- lotSessionStore.scheduleStartAll
 

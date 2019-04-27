@@ -10,5 +10,11 @@
     "name": "Love story",
     "startPrice": 1000,
     "description": "Pay and enjoy"
+  },
+  {
+    "id": "ac3fe284-68cc-11e9-832d-4f60047b7e0c",
+    "name": "Chupa Chups",
+    "startPrice": 2.17,
+    "description": "Pay and enjoy 2.0"
   }
 ]

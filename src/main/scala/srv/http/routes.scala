@@ -1,14 +1,11 @@
 package srv.http
 
-import java.util.UUID
-
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import cats.effect.IO
 import cats.implicits._
 import io.circe.{Decoder, Encoder}
 import srv.{LotSessionStore, SimpleStateStore}
-
 
 object routes {
 
@@ -30,14 +27,14 @@ object routes {
       }
   }
 
-  object SimpleStoreHttp {
-    def route[T: Encoder : Decoder](prefix: String, store: SimpleStateStore[IO, T]): Route =
+  object SimpleStoreHttp { //TODO problem with exceptions + handler
+    def route[T: Encoder : Decoder, K: ConvertFromString](prefix: String, store: SimpleStateStore[IO, T, K]): Route =
       pathPrefix(prefix) {
         get {
           path("all") {
             complete(store.all)
           } ~
-            parameter("id".as[UUID]) { id =>
+            parameter("id".as[K]) { id =>
               complete(store.byId(id))
             }
         } ~

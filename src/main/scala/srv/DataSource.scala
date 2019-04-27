@@ -21,13 +21,13 @@ object DataSource {
   def file[F[_] : Sync]: F[DataSource[F]] = Sync[F].delay(new FileDataSource[F])
 
   private final class FileDataSource[F[_] : Sync] extends DataSource[F] {
-    def users: F[List[User]] = decodeListObjFromJsonResource[User]("/users.json")
+    def users: F[List[User]] = decodeListObjFromJsonResource[User]("/data/users.json")
 
-    def lots: F[List[Lot]] = decodeListObjFromJsonResource[Lot]("/lots.json")
+    def lots: F[List[Lot]] = decodeListObjFromJsonResource[Lot]("/data/lots.json")
 
-    def lotSessions: F[List[LotSession]] = decodeListObjFromJsonResource[LotSession]("/sessions.json")
+    def lotSessions: F[List[LotSession]] = decodeListObjFromJsonResource[LotSession]("/data/sessions.json")
 
-    def bets: F[List[Bet]] = decodeListObjFromJsonResource[Bet]("/bets.json")
+    def bets: F[List[Bet]] = decodeListObjFromJsonResource[Bet]("/data/bets.json")
 
     private def decodeListObjFromJsonResource[T: Decoder](name: String): F[List[T]] = Sync[F].delay {
       decode[List[T]](

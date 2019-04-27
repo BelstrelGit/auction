@@ -16,12 +16,12 @@ final case class User(
 
 object User {
 
-  implicit val key: Key[User] = new Key[User] {
-    def key(el: User): UUID = el.id
+  implicit val key: Key[User, String] = new Key[User, String] {
+    def key(el: User): String = el.name
 
-    def notFound(id: UUID): Throwable = UserNotFound(id)
+    def notFound(id: String): Throwable = UserNotFound(id)
 
-    def multipleKey(id: UUID): Throwable = MultipleUser(id)
+    def multipleKey(id: String): Throwable = MultipleUser(id)
   }
 
   val extractor: Extractor[IO, User] = (ds: DataSource[IO]) => ds.users
@@ -51,7 +51,7 @@ final case class LotSession(
 }
 
 object LotSession {
-  implicit val key: Key[LotSession] = new Key[LotSession] {
+  implicit val key: Key[LotSession, UUID] = new Key[LotSession, UUID] {
     def key(el: LotSession): UUID = el.id
 
     def notFound(id: UUID): Throwable = LotSessionNotFound(id)
@@ -85,7 +85,7 @@ final case class Lot(
 )
 
 object Lot {
-  implicit val key: Key[Lot] = new Key[Lot] {
+  implicit val key: Key[Lot, UUID] = new Key[Lot, UUID] {
     def key(el: Lot): UUID = el.id
 
     def notFound(id: UUID): Throwable = LotNotFound(id)
@@ -104,7 +104,7 @@ final case class Bet(
 )
 
 object Bet {
-  implicit val key: Key[Bet] = new Key[Bet] {
+  implicit val key: Key[Bet, UUID] = new Key[Bet, UUID] {
     def key(el: Bet): UUID = el.id
 
     def notFound(id: UUID): Throwable = BetNotFound(id)
@@ -117,9 +117,9 @@ object Bet {
 
 abstract class StacklessException(message: String) extends Exception(message, null, false, false)
 
-final case class UserNotFound(id: UUID) extends StacklessException(s"User with id $id not found")
+final case class UserNotFound(id: String) extends StacklessException(s"User with id $id not found")
 
-final case class MultipleUser(id: UUID) extends StacklessException(s"Multiple User with id $id")
+final case class MultipleUser(id: String) extends StacklessException(s"Multiple User with id $id")
 
 final case class LotSessionNotFound(id: UUID) extends StacklessException(s"LotSession with id $id not found")
 
