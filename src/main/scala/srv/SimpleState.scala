@@ -8,24 +8,26 @@ trait SimpleState[T, K] {
 
   def remove(elem: T): Either[Throwable, SimpleState[T, K]]
 
-  def update(elem: T): SimpleState[T, K]
+  def update(elem: T): Either[Throwable, SimpleState[T, K]]
 
   def getById(id: K): Option[T]
 }
 
 object SimpleState {
 
-  def create[T, K](elems: List[T])(implicit key: Key[T, K]): Either[Throwable, SimpleState[T, K]] =
+  def create[T, K](elems: List[T])(implicit key: Key[T, K]): Either[Throwable, SimpleState[T, K]] = {
+
+    def makeStateMap(elems: List[T]): Either[Throwable, Map[K, T]] = {
+      val grouped = elems.groupBy(Key.key[T, K]).toList
+      val multiple = grouped.collect { case (id, _ :: _ :: Nil) => id }
+
+      if (multiple.isEmpty)
+        Right(grouped.map { case (id, list) => id -> list.head }.toMap)
+      else
+        Left(Key.multipleKey[T, K](multiple.head)) // TODO change error definition to varargs
+    }
+
     makeStateMap(elems).map(MapSimpleState(_))
-
-  private def makeStateMap[T, K](elems: List[T])(implicit key: Key[T, K]): Either[Throwable, Map[K, T]] = {
-    val grouped = elems.groupBy(Key.key[T, K]).toList
-    val multiple = grouped.collect { case (id, _ :: _ :: Nil) => id }
-
-    if (multiple.isEmpty)
-      Right(grouped.map { case (id, list) => id -> list.head }.toMap)
-    else
-      Left(Key.multipleKey[T, K](multiple.head)) // TODO change error definition to varargs
   }
 
   private case class MapSimpleState[T, K](state: Map[K, T])(implicit key: Key[T, K]) extends SimpleState[T, K] {
@@ -48,7 +50,7 @@ object SimpleState {
       }
     }
 
-    def update(elem: T): SimpleState[T, K] = copy(state + (Key.key(elem) -> elem))
+    def update(elem: T): Either[Throwable, SimpleState[T, K]] = Right(copy(state + (Key.key(elem) -> elem)))
 
     def getById(id: K): Option[T] = state.get(id)
   }

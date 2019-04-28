@@ -3,10 +3,11 @@ package srv
 import java.util.UUID
 
 import cats.effect.IO
+
+import scala.concurrent.duration.FiniteDuration
 import com.github.nscala_time.time.Imports._
 import io.circe.derivation.annotations.JsonCodec
 import io.circe.{Decoder, Encoder}
-import srv.LotSessionStatus.{Active, Closed, Created}
 
 @JsonCodec
 final case class User(
@@ -35,21 +36,9 @@ final case class LotSession(
   currPrice: BigDecimal,
   bets: List[Bet],
   startTime: DateTime,
+  duration: FiniteDuration,
   status: LotSessionStatus
-) {
-
-  def makeBet(bet: Bet): Either[String, LotSession] = status match {
-    case Active =>
-      if (bet.amount > currPrice)
-        Right(copy(currPrice = bet.amount, bets = bet :: bets))
-      else
-        Left(s"Bet must be more then $currPrice (your bet is ${bet.amount}).")
-    case Created =>
-      Left(s"Session is not started yet. Make bet after $startTime.")
-    case Closed =>
-      Left(s"Session is closed.")
-  }
-}
+)
 
 object LotSession {
   implicit val key: Key[LotSession, UUID] = new Key[LotSession, UUID] {
@@ -124,6 +113,7 @@ final case class UserNotAuthorized(id: String) extends StacklessException(s"User
 
 final case class LotSessionNotFound(id: UUID) extends StacklessException(s"LotSession with id $id not found")
 final case class MultipleLotSession(id: UUID) extends StacklessException(s"Multiple LotSession with id $id")
+final case class ChangeNonActiveLotSession(id: UUID) extends StacklessException(s"Attempt to change non-active session $id")
 
 final case class LotNotFound(id: UUID) extends StacklessException(s"Lot with id $id not found")
 final case class MultipleLot(id: UUID) extends StacklessException(s"Multiple Lot with id $id")

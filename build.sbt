@@ -28,8 +28,8 @@ val akkaVersion = "2.5.19"
 val akkaActorVersion = "2.5.22"
 val akkaHttpVersion = "10.1.7"
 
-val circeVersion = "0.11.0"
-val circeDerVersion = "0.11.0-M1"
+val circeVersion = "0.12.0-M1"
+val circeDerVersion = "0.12.0-M1"
 
 val nscalaTimeVersion = "2.22.0"
 

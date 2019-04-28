@@ -10,7 +10,7 @@ import srv.{LotSessionStore, SimpleStateStore, User, UserStore}
 object routes {
 
   object LotSessionHttp {
-    def route(prefix: String, store: LotSessionStore): Route =
+    def route(prefix: String, store: LotSessionStore[IO]): Route =
       pathPrefix(prefix) {
         (get & path("all")) {
           complete(store.all)

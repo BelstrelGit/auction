@@ -34,13 +34,13 @@ object Auction extends IOApp {
       implicit0(l: Logger[IO]) <- Slf4jLogger.create[IO]
       implicit0(ctx: ExecutionContext) <- IO(s.dispatcher)
       implicit0(scheduler: Scheduler) <- IO(s.scheduler)
-      implicit0(sessionScheduler: SessionScheduler) <- IOScheduler.create
+      implicit0(sessionScheduler: SessionScheduler[IO]) <- SessionScheduler.create[IO]
       implicit0(ds: DataSource[IO]) <- DataSource.file[IO]
 
       lotStore <- SimpleStateStore.create(Lot.extractor)
       betStore <- SimpleStateStore.create(Bet.extractor)
       userStore <- UserStore.create[IO]
-      lotSessionStore <- LotSessionStore.fromResource("/data/sessions.json")
+      lotSessionStore <- LotSessionStore.create[IO]
 
       _ <- lotSessionStore.scheduleStartAll
 

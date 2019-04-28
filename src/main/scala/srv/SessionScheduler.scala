@@ -5,56 +5,84 @@ import java.util.UUID
 import akka.actor.{Cancellable, Scheduler}
 import cats.effect._
 import cats.effect.concurrent.Ref
-import srv.IOScheduler.State
+import cats.implicits._
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 
-trait SessionScheduler {
+trait SessionScheduler[F[_]] {
   def start(
-    sessionStore: LotSessionStore,
     sessionId: UUID,
-    delay: FiniteDuration
-  )(implicit s: Scheduler, ec: ExecutionContext): IO[UUID]
+    startDelay: FiniteDuration,
+    endDelay: FiniteDuration,
+    startCB: () => Unit,
+    endCB: () => Unit
+  ): F[UUID]
 
-  def cancel(sessionId: UUID): IO[Boolean]
+  def cancel(sessionId: UUID): F[Boolean]
 }
 
-final case class IOScheduler(state: Ref[IO, State]) extends SessionScheduler {
+object SessionScheduler {
 
-  def start(
-    sessionStore: LotSessionStore,
-    sessionId: UUID,
-    delay: FiniteDuration
-  )(implicit s: Scheduler, ec: ExecutionContext): IO[UUID] = {
-    val cancellable = s.scheduleOnce(delay)(sessionStore.start(sessionId).unsafeRunSync())
-    state.modify(_.add(sessionId, IO(cancellable)))
+  def create[F[_] : Sync](
+    implicit
+    akkaScheduler: Scheduler,
+    ec: ExecutionContext
+  ): F[SessionScheduler[F]] ={
+    val init = Map.empty[UUID, Cancellable]
+
+    Ref[F].of(State(init, init)).map(ImplSessionScheduler(_))
   }
 
-  def cancel(sessionId: UUID): IO[Boolean] =
-    for {
-      cancelable <- state.modify(_.getAndRemove(sessionId))
-      res <- cancelable
-    } yield res.cancel()
+  private final case class ImplSessionScheduler[F[_] : Sync](
+    state: Ref[F, State]
+  )(
+    implicit
+    akkaScheduler: Scheduler,
+    ec: ExecutionContext
+  ) extends SessionScheduler[F] {
 
-}
+    def start(
+      sessionId: UUID,
+      startDelay: FiniteDuration,
+      duration: FiniteDuration,
+      startCB: () => Unit,
+      endCB: () => Unit
+    ): F[UUID] = {
 
-object IOScheduler {
+      for {
+        startC <- Sync[F].delay(akkaScheduler.scheduleOnce(startDelay)(startCB()))
+        _ <- state.modify(_.addStart(sessionId, startC))
+        endC <- Sync[F].delay(akkaScheduler.scheduleOnce(startDelay + duration)(endCB()))
+        res <- state.modify(_.addEnd(sessionId, endC))
+      } yield res
+    }
 
-  def create: IO[IOScheduler] = for {res <- Ref[IO].of(State(Map[UUID, IO[Cancellable]]()))} yield IOScheduler(res)
-
-  final case class State(started: Map[UUID, IO[Cancellable]]) {
-    def add(sessionId: UUID, cancellable: IO[Cancellable]): (State, UUID) =
-      State(started = started + (sessionId -> cancellable)) -> sessionId
-
-    def getAndRemove(sessionId: UUID): (State, IO[Cancellable]) = {
-
-      val ioCancel = started.get(sessionId) match {
-        case Some(cancellable) => cancellable
-        case None => IO.raiseError(LotSessionNotFound(sessionId))
+    def cancel(sessionId: UUID): F[Boolean] =
+      state.modify(_.getAndRemove(sessionId)) >>= {
+        case Left(thr) => Sync[F].raiseError(thr)
+        case Right(list) =>
+          Sync[F].delay(list.map(_.fold(false)(c => c.cancel())).foldLeft(false)(_ || _))
       }
+  }
 
-      State(started = started - sessionId) -> ioCancel
+  private final case class State(startC: Map[UUID, Cancellable], endC: Map[UUID, Cancellable]) {
+
+    def addStart(sessionId: UUID, cancellable: Cancellable): (State, UUID) =
+      copy(startC = startC + (sessionId -> cancellable)) -> sessionId
+
+    def addEnd(sessionId: UUID, cancellable: Cancellable): (State, UUID) =
+      copy(endC = endC + (sessionId -> cancellable)) -> sessionId
+
+    def getAndRemove(sessionId: UUID): (State, Either[Throwable, List[Option[Cancellable]]]) = {
+
+      val sCancellable = startC.get(sessionId)
+      val eCancellable = endC.get(sessionId)
+
+      if (sCancellable.isDefined && eCancellable.isDefined)
+        copy(startC = startC - sessionId) -> Right(List(sCancellable, eCancellable))
+      else
+        this -> Left(LotSessionNotFound(sessionId))
     }
   }
 

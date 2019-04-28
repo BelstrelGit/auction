@@ -21,6 +21,7 @@
       }
     ],
     "startTime": "2019-02-17 22:00:00",
+    "duration": { "length": 2, "unit": "hours" },
     "status": "Closed"
   },
   {
@@ -28,7 +29,8 @@
     "lotId": "be6ab0ea-64e6-11e9-8588-4fb3ad214407",
     "currPrice": 1000,
     "bets": [],
-    "startTime": "2019-04-24 02:06:00",
+    "startTime": "2019-04-28 19:08:20",
+    "duration": { "length": 10, "unit": "seconds" },
     "status": "Created"
   },
   {
@@ -36,7 +38,8 @@
     "lotId": "ac3fe284-68cc-11e9-832d-4f60047b7e0c",
     "currPrice": 2.17,
     "bets": [],
-    "startTime": "2019-05-24 02:06:00",
+    "startTime": "2019-04-28 19:10:30",
+    "duration": { "length": 10, "unit": "minutes" },
     "status": "Created"
   }
 ]

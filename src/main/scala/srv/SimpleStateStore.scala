@@ -41,7 +41,7 @@ object SimpleStateStore {
 
     def remove(elem: T): F[Unit] = stateUpdate(_.remove(elem))
 
-    def update(elem: T): F[Unit] = state.update(_.update(elem))
+    def update(elem: T): F[Unit] = stateUpdate(_.update(elem))
 
     def getById(id: K): F[Option[T]] = state.get >>= (s => Sync[F].delay(s.getById(id)))
 
