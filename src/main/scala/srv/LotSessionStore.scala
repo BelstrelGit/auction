@@ -6,6 +6,7 @@ import akka.actor.Scheduler
 import cats.effect.Sync
 import cats.effect.concurrent.Ref
 import cats.implicits._
+import com.github.nscala_time.time.Imports._
 import io.chrisdavenport.log4cats.Logger
 import org.joda.time.{DateTime, Period}
 import srv.LotSessionStatus.{Active, Closed, Created}
@@ -100,7 +101,7 @@ object LotSessionStore {
     }
 
     def scheduleStartAll: F[List[UUID]] =
-      created >>= (ss => ss.map(s => scheduleStart(s.id)).sequence)
+      created >>= (ss => ss.withFilter(_.startTime >= DateTime.now()).map(s => scheduleStart(s.id)).sequence)
 
     def start(id: UUID): F[LotSession] =
       (state.modify(_.toActive(id)) >>= Sync[F].fromEither[LotSession]) <* logger.info(s"LotSession with id $id started")
