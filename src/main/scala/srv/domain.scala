@@ -83,7 +83,7 @@ object Lot {
     def multipleKey(id: UUID): Throwable = MultipleLot(id)
   }
 
-  val extractor: Extractor[IO, Lot] = (ds: DataSource[IO]) => ds.lots
+  implicit val extractor: Extractor[IO, Lot] = (ds: DataSource[IO]) => ds.lots
 }
 
 @JsonCodec
@@ -102,7 +102,7 @@ object Bet {
     def multipleKey(id: UUID): Throwable = MultipleBet(id)
   }
 
-  val extractor: Extractor[IO, Bet] = (ds: DataSource[IO]) => ds.bets
+  implicit val extractor: Extractor[IO, Bet] = (ds: DataSource[IO]) => ds.bets
 }
 
 abstract class StacklessException(message: String) extends Exception(message, null, false, false)

@@ -1,5 +1,7 @@
 package srv
 
+import java.util.UUID
+
 import akka.actor.{ActorSystem, Scheduler}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.Directives._
@@ -37,8 +39,8 @@ object Auction extends IOApp {
       implicit0(sessionScheduler: SessionScheduler[IO]) <- SessionScheduler.create[IO]
       implicit0(ds: DataSource[IO]) <- DataSource.file[IO]
 
-      lotStore <- SimpleStateStore.create(Lot.extractor)
-      betStore <- SimpleStateStore.create(Bet.extractor)
+      lotStore <- SimpleStateStore.create[IO, Lot, UUID]
+      betStore <- SimpleStateStore.create[IO, Bet, UUID]
       userStore <- UserStore.create[IO]
       lotSessionStore <- LotSessionStore.create[IO]
 

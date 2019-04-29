@@ -20,9 +20,12 @@ trait SimpleStateStore[F[_], T, K] {
 
 object SimpleStateStore {
 
-  def create[F[_] : Sync, T, K](
-    extractor: Extractor[F, T]
-  )(implicit ds: DataSource[F], key: Key[T, K]): F[SimpleStateStore[F, T, K]] = {
+  def create[F[_] : Sync, T, K]
+    (implicit
+      ds: DataSource[F],
+      key: Key[T, K],
+      extractor: Extractor[F, T]
+    ): F[SimpleStateStore[F, T, K]] = {
     for {
       elems <- extractor.get
       state <- Sync[F].fromEither(SimpleState.create(elems))
