@@ -89,11 +89,12 @@ object Lot {
 @JsonCodec
 final case class Bet(
   id: UUID,
-  userId: UUID,
+  username: String,
   amount: BigDecimal
 )
 
 object Bet {
+
   implicit val key: Key[Bet, UUID] = new Key[Bet, UUID] {
     def key(el: Bet): UUID = el.id
 

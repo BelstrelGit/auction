@@ -42,7 +42,7 @@ object Auction extends IOApp {
       lotStore <- SimpleStateStore.create[IO, Lot, UUID]
       betStore <- SimpleStateStore.create[IO, Bet, UUID]
       userStore <- UserStore.create[IO]
-      lotSessionStore <- LotSessionStore.create[IO]
+      lotSessionStore <- LotSessionStore.create[IO](userStore, betStore)
 
       _ <- lotSessionStore.scheduleStartAll
 

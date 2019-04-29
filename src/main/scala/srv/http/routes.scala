@@ -1,30 +1,76 @@
 package srv.http
 
+import java.util.UUID
+
 import akka.http.scaladsl.server.Directives.{parameter, _}
 import akka.http.scaladsl.server.Route
 import cats.effect.IO
 import cats.implicits._
+import io.chrisdavenport.log4cats.Logger
 import io.circe.{Decoder, Encoder}
 import srv.{LotSessionStore, SimpleStateStore, User, UserStore}
 
 object routes {
 
   object LotSessionHttp {
-    def route(prefix: String, store: LotSessionStore[IO]): Route =
+    def route(prefix: String, store: LotSessionStore[IO])(implicit logger: Logger[IO]): Route =
       pathPrefix(prefix) {
-        (get & path("all")) {
-          complete(store.all)
+        get {
+          path("all") {
+            complete(store.all)
+          } ~
+            path("created") {
+              complete(store.created)
+            } ~
+            path("active") {
+              complete(store.active)
+            } ~
+            path("closed") {
+              complete(store.closed)
+            }
         } ~
-          (get & path("created")) {
-            complete(store.created)
-          } ~
-          (get & path("active")) {
-            complete(store.active)
-          } ~
-          (get & path("closed")) {
-            complete(store.closed)
+          post {
+            path("bet") {
+              entity(as[IO[Map[String, String]]]) { ioParams =>
+                complete(
+                  ioParams >>= { params =>
+                    parseMakeBetParams(params) match {
+                      case Right((
+                        username: String,
+                        token: UUID,
+                        sessionId: UUID,
+                        amount: BigDecimal)) =>
+                        store.makeBet(username, token, sessionId, amount)
+                      case Left(_) =>
+
+                        IO.raiseError(new RuntimeException)
+                    }
+                  })
+              }
+            }
           }
       }
+
+    private def parseMakeBetParams(params: Map[String, String]) = {
+      val username = params.get("username")
+      val token = params.get("token")
+      val sessionId = params.get("sessionId")
+      val amount = params.get("amount")
+
+      if ((username >> token >> sessionId >> amount).isDefined) {
+        try {
+          Right((
+            username.get,
+            UUID.fromString(token.get),
+            UUID.fromString(sessionId.get),
+            BigDecimal.exact(amount.get)))
+        } catch {
+          case _: Exception => Left("Bad request")
+        }
+      }
+      else
+        Left("Bad request")
+    }
   }
 
   object SimpleStoreHttp { //TODO problem with exceptions + handler
@@ -40,17 +86,19 @@ object routes {
             add[T, K]
           } ~
           put {
-            update[T,K]
+            update[T, K]
           } ~
           delete {
-            remove[T,K]
+            remove[T, K]
           }
       }
     }
 
     private[routes] def all[T: Encoder : Decoder, K: ConvertFromString](
       implicit store: SimpleStateStore[IO, T, K]
-    ): Route = path("all") { complete(store.all) }
+    ): Route = path("all") {
+      complete(store.all)
+    }
 
     private[routes] def byId[T: Encoder : Decoder, K: ConvertFromString](
       implicit store: SimpleStateStore[IO, T, K]
@@ -72,7 +120,7 @@ object routes {
   object UserStoreHttp {
     def route(implicit store: UserStore[IO]): Route = {
 
-    import SimpleStoreHttp._
+      import SimpleStoreHttp._
 
       pathPrefix("user") {
         get {
@@ -87,7 +135,6 @@ object routes {
               path("singOut") {
                 entity(as[IO[User]]) { ioUser =>
                   complete(ioUser.flatMap(store.singOut))
-
                 }
               } ~ add[User, String]
           } ~
@@ -104,4 +151,5 @@ object routes {
       }
     }
   }
+
 }

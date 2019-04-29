@@ -25,14 +25,20 @@ trait LotSessionStore[F[_]] extends SimpleStateStore[F, LotSession, UUID] {
 
   def scheduleStartAll: F[List[UUID]]
 
-  def start(id: UUID): F[LotSession]
-
-  def stop(id: UUID): F[LotSession]
+  def makeBet(
+    username: String,
+    token: UUID,
+    sessionId: UUID,
+    amount: BigDecimal
+  ): F[Bet]
 }
 
 object LotSessionStore {
 
   def create[F[_] : Sync : Unsafe](
+    userStore: UserStore[F],
+    betStore: SimpleStateStore[F, Bet, UUID]
+  )(
     implicit
     ds: DataSource[F],
     actorScheduler: Scheduler,
@@ -57,11 +63,13 @@ object LotSessionStore {
       active <- Sync[F].delay(Map.empty[UUID, LotSession])
       closed <- makeMapByUUID(closedL)
       state <- Ref[F].of(State(created, active, closed))
-    } yield ImplLotSessionStore(state)
+    } yield ImplLotSessionStore(state, userStore, betStore)
   }
 
   final case class ImplLotSessionStore[F[_] : Sync : Unsafe](
-    state: Ref[F, State]
+    state: Ref[F, State],
+    userStore: UserStore[F],
+    betStore: SimpleStateStore[F, Bet, UUID]
   )(implicit
     scheduler: SessionScheduler[F],
     logger: Logger[F]
@@ -69,11 +77,11 @@ object LotSessionStore {
 
     def all: F[List[LotSession]] = state.get >>= (ss => Sync[F].delay(ss.all))
 
-    def add(elem: LotSession): F[Unit] = stateUpdate(_.add(elem))
+    def add(elem: LotSession): F[Boolean] = stateUpdate(_.add(elem))
 
-    def remove(elem: LotSession): F[Unit] = stateUpdate(_.remove(elem))
+    def remove(elem: LotSession): F[Boolean] = stateUpdate(_.remove(elem))
 
-    def update(elem: LotSession): F[Unit] = stateUpdate(_.update(elem))
+    def update(elem: LotSession): F[Boolean] = stateUpdate(_.update(elem))
 
     def getById(id: UUID): F[Option[LotSession]] = state.get >>= (s => Sync[F].delay(s.getById(id)))
 
@@ -103,19 +111,40 @@ object LotSessionStore {
     def scheduleStartAll: F[List[UUID]] =
       created >>= (ss => ss.withFilter(_.startTime >= DateTime.now()).map(s => scheduleStart(s.id)).sequence)
 
-    def start(id: UUID): F[LotSession] =
+    def makeBet(
+      username: String,
+      token: UUID,
+      sessionId: UUID,
+      amount: BigDecimal
+    ): F[Bet] = {
+
+      def checkToken(user: User, token: UUID): F[Unit] =
+        if (token != user.token.get) Sync[F].raiseError(UserNotAuthorized(username))
+        else Sync[F].unit
+
+      for {
+        user <- userStore.byId(username)
+        _ <- checkToken(user, token)
+        bet <- Sync[F].delay(Bet(UUID.randomUUID(), username, amount))
+        isAdded <- stateUpdate(_.addBet(sessionId, bet))
+        _ <- if (isAdded) betStore.add(bet) else Sync[F].pure(false)
+      } yield bet
+    }
+
+
+    private def start(id: UUID): F[LotSession] =
       (state.modify(_.toActive(id)) >>= Sync[F].fromEither[LotSession]) <* logger.info(s"LotSession with id $id started")
 
-    def stop(id: UUID): F[LotSession] =
+    private def stop(id: UUID): F[LotSession] =
       (state.modify(_.toClose(id)) >>= Sync[F].fromEither[LotSession]) <* logger.info(s"LotSession with $id stopped")
 
-    private def stateUpdate(f: State => Either[Throwable, State]): F[Unit] =
+    private def stateUpdate(f: State => Either[Throwable, State]): F[Boolean] =
       state.modify { s =>
         f(s) match {
-          case Right(value) => value -> Sync[F].unit
-          case Left(thr) => s -> Sync[F].raiseError(thr)
+          case Right(value) => value -> Sync[F].pure(true)
+          case Left(thr) => s -> (Sync[F].raiseError(thr): F[Boolean])
         }
-      }
+      }.flatten
   }
 
   private[LotSessionStore] final case class State(
@@ -134,10 +163,10 @@ object LotSessionStore {
     }
 
     def remove(session: LotSession): Either[Throwable, State] =
-      withActive(session.id, _.copy(active = active - session.id))
+      withActive(session.id, s => Right(s.copy(active = active - session.id)))
 
     def update(session: LotSession): Either[Throwable, State] =
-      withActive(session.id, _.copy(active = active + (session.id -> session)))
+      withActive(session.id, s => Right(s.copy(active = active + (session.id -> session))))
 
     def getById(id: UUID): Option[LotSession] = created.get(id).orElse(active.get(id)).orElse(closed.get(id))
 
@@ -159,10 +188,24 @@ object LotSessionStore {
           this -> Left(LotSessionNotFound(id))
       }
 
-    private def withActive(id: UUID, f: State => State): Either[Throwable, State] = {
+    private[LotSessionStore] def addBet(id: UUID, bet: Bet): Either[Throwable, State] = {
+      withActive(id, { state =>
+        val session = state.active(id)
+
+        if (bet.amount > session.currPrice)
+          Right(state.copy(active = active + (id -> session.copy(
+            currPrice = bet.amount,
+            bets = bet :: session.bets
+          ))))
+        else
+          Left(new RuntimeException)
+      })
+    }
+
+    private def withActive(id: UUID, f: State => Either[Throwable, State]): Either[Throwable, State] = {
       if (isExist(id)) {
         active.get(id) match {
-          case Some(_) => Right(f(this))
+          case Some(_) => f(this)
           case None => Left(ChangeNonActiveLotSession(id))
         }
       } else

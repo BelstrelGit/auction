@@ -1,17 +1,17 @@
 [
   {
     "id": "660bb6ee-0085-4fd1-a983-ff21160dd1a8",
-    "userId": "d0e008ae-638a-11e9-9d74-d3e3da6dbd17",
+    "username": "SuperDuperGuy",
     "amount": 200
   },
   {
     "id": "67a11faf-8b8d-4d5b-99f8-c8e37c42ee77",
-    "userId": "d974c9be-638a-11e9-99d8-7be44b40ea1a",
+    "username": "Frau",
     "amount": 208
   },
   {
     "id": "09baa378-396e-4e7f-988b-e0aad50d29f7",
-    "userId": "d0e008ae-638a-11e9-9d74-d3e3da6dbd17",
+    "username": "SuperDuperGuy",
     "amount": 228
   }
 ]

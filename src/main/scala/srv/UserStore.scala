@@ -12,9 +12,9 @@ trait UserStore[F[_]] extends SimpleStateStore[F, User, String] {
 
   def singIn(user: User): F[UUID]
 
-  def singOut(user: User): F[Unit]
+  def singOut(user: User): F[Boolean]
 
-  def changePassword(user: User): F[Unit]
+  def changePassword(user: User): F[Boolean]
 }
 
 object UserStore {
@@ -41,12 +41,12 @@ object UserStore {
       else notFound(user.username)
     }
 
-    def singOut(user: User): F[Unit] = byId(user.username) >>= { u =>
+    def singOut(user: User): F[Boolean] = byId(user.username) >>= { u =>
       if (user.token == u.token) removeToken(u)
       else notAuthorized(user.username)
     }
 
-    def changePassword(user: User): F[Unit] = byId(user.username) >>= { u =>
+    def changePassword(user: User): F[Boolean] = byId(user.username) >>= { u =>
       if (user.token == u.token) {
         super.update(u.copy(password = user.password)) <*
           logger.info(s"User [${user.username}] change password")
@@ -54,7 +54,7 @@ object UserStore {
       else notAuthorized(user.username)
     }
 
-    override def update(user: User): F[Unit] = byId(user.username) >>= { u =>
+    override def update(user: User): F[Boolean] = byId(user.username) >>= { u =>
       if (user.token == u.token) {
         super.update(u.copy(name = user.name, age = user.age)) <*
           logger.info(s"User [${user.username}] change personal info")
@@ -69,7 +69,7 @@ object UserStore {
         _ <- logger.info(s"User [${user.username}] log in with token: $token")
       } yield token
 
-    private def removeToken(user: User): F[Unit] =
+    private def removeToken(user: User): F[Boolean] =
       super.update(user.copy(token = None)) <* logger.info(s"User [${user.username}] log out")
 
     private def notFound[R](id: String): F[R] = Sync[F].raiseError(UserNotFound(id))
