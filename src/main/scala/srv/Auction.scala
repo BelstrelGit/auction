@@ -2,62 +2,38 @@ package srv
 
 import java.util.UUID
 
-import akka.actor.{ActorSystem, Scheduler}
-import akka.http.scaladsl.Http
-import akka.http.scaladsl.server.Directives._
-import akka.http.scaladsl.server.Route
-import akka.stream.ActorMaterializer
-import cats.effect.{ExitCode, IO, IOApp}
+import akka.actor.Scheduler
+import cats.effect.Sync
+import cats.implicits._
 import io.chrisdavenport.log4cats.Logger
-import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
-import srv.http.routes._
 
 import scala.concurrent.ExecutionContext
 
-object Auction extends IOApp {
-
-  def system: IO[ActorSystem] = IO(ActorSystem("srv"))
-
-  def runServer(route: Route)(implicit system: ActorSystem, conf: HttpConfig, logger: Logger[IO]): IO[Unit] =
-    for {
-      binding <- IO.fromFuture(IO {
-        implicit val mat: ActorMaterializer = ActorMaterializer()
-        Http().bindAndHandle(route, conf.ip, conf.port)
-      })
-      res <- logger.info(binding.toString)
-    } yield res
-
-  def httpConfiguration: IO[HttpConfig] = IO(HttpConfig())
-
-  def run(args: List[String]): IO[ExitCode] =
-    for {
-      implicit0(s: ActorSystem) <- system
-      implicit0(c: HttpConfig) <- httpConfiguration
-      implicit0(l: Logger[IO]) <- Slf4jLogger.create[IO]
-      implicit0(ctx: ExecutionContext) <- IO(s.dispatcher)
-      implicit0(scheduler: Scheduler) <- IO(s.scheduler)
-      implicit0(sessionScheduler: SessionScheduler[IO]) <- SessionScheduler.create[IO]
-      implicit0(ds: DataSource[IO]) <- DataSource.file[IO]
-
-      userStore <- UserStore.create[IO]
-      lotStore <- SimpleStateStore.create[IO, Lot, UUID]
-      betStore <- SimpleStateStore.create[IO, Bet, UUID]
-      lotSessionStore <- LotSessionStore.create[IO](userStore, betStore)
-
-      _ <- lotSessionStore.scheduleStartAll
-
-      lotRoute = SimpleStoreHttp.route("lot", lotStore)
-      betRoute = SimpleStoreHttp.route("bet", betStore)
-      userRoute = UserStoreHttp.route(userStore)
-      lotSessionRoute = LotSessionHttp.route(lotSessionStore)
-
-      _ <- runServer(lotSessionRoute ~ lotRoute ~ betRoute ~ userRoute)
-
-      _ <- IO.never
-    } yield ExitCode.Success
-}
-
-final case class HttpConfig(
-  ip: String = "0.0.0.0",
-  port: Int = 8080
+final class Auction[F[_] : Sync] private(
+  val userStore: UserStore[F],
+  val lotStore: SimpleStateStore[F, Lot, UUID],
+  val betStore: SimpleStateStore[F, Bet, UUID],
+  val lotSessionStore: LotSessionStore[F]
 )
+
+object Auction {
+
+  def create[F[_] : Sync : Unsafe](
+    implicit
+    ds: DataSource[F],
+    l: Logger[F],
+    ec: ExecutionContext,
+    s: Scheduler
+  ): F[Auction[F]] = {
+    for {
+      implicit0(sessionScheduler: SessionScheduler[F]) <- SessionScheduler.create[F]
+
+      userStore <- UserStore.create[F]
+      lotStore <- SimpleStateStore.create[F, Lot, UUID]
+      betStore <- SimpleStateStore.create[F, Bet, UUID]
+      lotSessionStore <- LotSessionStore.createAndStart[F](userStore, betStore)
+
+      auction <- Sync[F].pure(new Auction[F](userStore, lotStore, betStore, lotSessionStore))
+    } yield auction
+  }
+}

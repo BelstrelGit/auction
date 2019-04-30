@@ -2,7 +2,7 @@ package srv
 
 import java.util.UUID
 
-import cats.effect.IO
+import cats.effect.{IO, Sync}
 
 import scala.concurrent.duration.FiniteDuration
 import com.github.nscala_time.time.Imports._
@@ -83,7 +83,7 @@ object Lot {
     def multipleKey(id: UUID): Throwable = MultipleLot(id)
   }
 
-  implicit val extractor: Extractor[IO, Lot] = (ds: DataSource[IO]) => ds.lots
+  implicit def extractor[F[_] : Sync]: Extractor[F, Lot] = (ds: DataSource[F]) => ds.lots
 }
 
 @JsonCodec
@@ -103,7 +103,7 @@ object Bet {
     def multipleKey(id: UUID): Throwable = MultipleBet(id)
   }
 
-  implicit val extractor: Extractor[IO, Bet] = (ds: DataSource[IO]) => ds.bets
+  implicit def extractor[F[_] : Sync]: Extractor[F, Bet] = (ds: DataSource[F]) => ds.bets
 }
 
 abstract class StacklessException(message: String) extends Exception(message, null, false, false)

@@ -66,6 +66,18 @@ object LotSessionStore {
     } yield ImplLotSessionStore(state, userStore, betStore)
   }
 
+  def createAndStart[F[_] : Sync : Unsafe](
+    userStore: UserStore[F],
+    betStore: SimpleStateStore[F, Bet, UUID]
+  )(
+    implicit
+    ds: DataSource[F],
+    actorScheduler: Scheduler,
+    executionContext: ExecutionContext,
+    logger: Logger[F]
+  ): F[LotSessionStore[F]] =
+    create(userStore, betStore).flatTap(_.scheduleStartAll)
+
   final case class ImplLotSessionStore[F[_] : Sync : Unsafe](
     state: Ref[F, State],
     userStore: UserStore[F],
