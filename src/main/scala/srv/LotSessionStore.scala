@@ -198,7 +198,7 @@ object LotSessionStore {
             bets = bet :: session.bets
           ))))
         else
-          Left(new RuntimeException)
+          Left(IllegalBetAmount(bet.amount, session.currPrice))
       })
     }
 

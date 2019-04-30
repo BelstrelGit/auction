@@ -38,7 +38,7 @@ object UserStore {
 
     def singIn(user: User): F[UUID] = byId(user.username) >>= { u =>
       if (validatePassword(user.password, u.password)) generateToken(u)
-      else notFound(user.username)
+      else illegalCredentials
     }
 
     def singOut(user: User): F[Boolean] = byId(user.username) >>= { u =>
@@ -72,7 +72,7 @@ object UserStore {
     private def removeToken(user: User): F[Boolean] =
       super.update(user.copy(token = None)) <* logger.info(s"User [${user.username}] log out")
 
-    private def notFound[R](id: String): F[R] = Sync[F].raiseError(UserNotFound(id))
+    private def illegalCredentials[R]: F[R] = Sync[F].raiseError(IllegalCredentials)
 
     private def notAuthorized[R](id: String): F[R] = Sync[F].raiseError(UserNotAuthorized(id))
   }

@@ -111,6 +111,7 @@ abstract class StacklessException(message: String) extends Exception(message, nu
 final case class UserNotFound(id: String) extends StacklessException(s"User with username $id not found")
 final case class MultipleUser(id: String) extends StacklessException(s"Multiple User with username $id")
 final case class UserNotAuthorized(id: String) extends StacklessException(s"User with username $id is not authorized")
+case object IllegalCredentials extends StacklessException("Wrong login/password")
 
 final case class LotSessionNotFound(id: UUID) extends StacklessException(s"LotSession with id $id not found")
 final case class MultipleLotSession(id: UUID) extends StacklessException(s"Multiple LotSession with id $id")
@@ -121,3 +122,6 @@ final case class MultipleLot(id: UUID) extends StacklessException(s"Multiple Lot
 
 final case class BetNotFound(id: UUID) extends StacklessException(s"Bet with id $id not found")
 final case class MultipleBet(id: UUID) extends StacklessException(s"Multiple Bet with id $id")
+final case class IllegalBetAmount(amount: BigDecimal, min: BigDecimal) extends StacklessException(s"Bet amount must bo more that $min (current is $amount)")
+
+case object BadRequestDataFormat extends StacklessException("Illegal input data format")

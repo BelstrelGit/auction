@@ -39,9 +39,9 @@ object Auction extends IOApp {
       implicit0(sessionScheduler: SessionScheduler[IO]) <- SessionScheduler.create[IO]
       implicit0(ds: DataSource[IO]) <- DataSource.file[IO]
 
+      userStore <- UserStore.create[IO]
       lotStore <- SimpleStateStore.create[IO, Lot, UUID]
       betStore <- SimpleStateStore.create[IO, Bet, UUID]
-      userStore <- UserStore.create[IO]
       lotSessionStore <- LotSessionStore.create[IO](userStore, betStore)
 
       _ <- lotSessionStore.scheduleStartAll
@@ -49,7 +49,7 @@ object Auction extends IOApp {
       lotRoute = SimpleStoreHttp.route("lot", lotStore)
       betRoute = SimpleStoreHttp.route("bet", betStore)
       userRoute = UserStoreHttp.route(userStore)
-      lotSessionRoute = LotSessionHttp.route("session", lotSessionStore)
+      lotSessionRoute = LotSessionHttp.route(lotSessionStore)
 
       _ <- runServer(lotSessionRoute ~ lotRoute ~ betRoute ~ userRoute)
 
